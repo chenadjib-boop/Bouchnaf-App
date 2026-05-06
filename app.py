@@ -2,49 +2,67 @@ import streamlit as st
 import google.generativeai as genai
 import PyPDF2
 
-# 1. إعدادات الواجهة
+# 1. إعدادات الواجهة الاحترافية
 st.set_page_config(page_title="مؤسسة بوشناف منذر", layout="wide")
-st.markdown("<h1 style='text-align: center;'>🏗️ نظام بوشناف لتحليل المشاريع</h1><hr>", unsafe_allow_html=True)
+st.markdown("""
+    <style>
+    .main { background-color: #f5f5f5; }
+    .stTable { background-color: white; }
+    </style>
+    <h1 style='text-align: center; color: #1E3A8A;'>🏗️ لوحة تحكم المشاريع - مؤسسة بوشناف</h1>
+    <hr>
+""", unsafe_allow_html=True)
 
-# 2. جلب المفتاح وتحديد الموديل المتاح تلقائياً
+# 2. إعداد الاتصال التلقائي
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
-    
-    # هذه الخطوة تبحث في حسابك عن الموديل الذي يدعم توليد المحتوى وتختاره
     available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-    if not available_models:
-        st.error("لم يتم العثور على أي موديل متاح في حسابك. تأكد من إعدادات API Key.")
-        st.stop()
-    
-    # اختيار أول موديل متاح (سواء كان pro أو flash أو غيره)
-    model_to_use = available_models[0]
-    model = genai.GenerativeModel(model_to_use)
-    st.sidebar.success(f"تم الاتصال بالمحرك: {model_to_use}")
-
+    model = genai.GenerativeModel(available_models[0])
 except Exception as e:
-    st.error(f"خطأ في الاتصال بجوجل: {e}")
+    st.error(f"خطأ في الإعدادات: {e}")
     st.stop()
 
-# 3. معالجة الملف
-uploaded_file = st.file_uploader("ارفع ملف دفتر الشروط (PDF)", type=["pdf"])
+# 3. رفع ومعالجة الملف
+uploaded_file = st.file_uploader("ارفع دفتر الشروط (PDF) لتحويله إلى جداول تنفيذية", type=["pdf"])
 
 if uploaded_file:
-    with st.spinner("جاري استخراج جداول الأسعار والمهام..."):
+    with st.spinner("جاري تحويل نص دفتر الشروط إلى جداول منظمة..."):
         try:
-            # استخراج النص من PDF
             pdf_reader = PyPDF2.PdfReader(uploaded_file)
             text_content = ""
-            for page in pdf_reader.pages[:10]: # نأخذ أول 10 صفحات لضمان السرعة
+            for page in pdf_reader.pages[:15]: # زيادة عدد الصفحات لضمان شمولية البيانات
                 text_content += page.extract_text()
 
-            prompt = f"أنت خبير صفقات عمومية جزائري. من النص التالي، استخرج جدول الأسعار (BPU) وجدول المهام التنفيذية:\n\n{text_content}"
+            # تطوير الطلب للحصول على جداول حقيقية
+            prompt = f"""
+            بصفتك مهندس إدارة مشاريع، حلل النص التالي المستخرج من دفتر شروط في الجزائر.
+            يجب أن تكون المخرجات دقيقة وفي شكل جداول Markdown فقط كما يلي:
+
+            1. **جدول الأسعار الوحدوية (BPU)**: (الرقم، بيان الأعمال، الوحدة، الكمية التقديرية).
+            2. **جدول المخطط الزمني**: (المرحلة، مدة الإنجاز المتوقعة، الأسبوع المستهدف).
+            3. **قائمة الاحتياجات الميدانية**: (نوع العتاد، عدد العمال المطلوبين).
+
+            النص:
+            {text_content}
+            """
             
             response = model.generate_content(prompt)
-            st.markdown("### 📊 نتائج تحليل المشروع")
-            st.markdown(response.text)
             
+            # 4. عرض النتائج في تبويبات (Tabs) لتنظيم العرض
+            tab1, tab2, tab3 = st.tabs(["📊 جداول الأسعار (BPU)", "📅 المخطط الزمني", "🔧 العتاد والعمالة"])
+            
+            # تقسيم الاستجابة (محاولة بسيطة لعرض كل جزء في تبويبه)
+            results = response.text.split("###") # يفترض أن الذكاء الاصطناعي يستخدم العناوين
+            
+            with tab1:
+                st.markdown("### نتائج تحليل الأسعار")
+                st.markdown(response.text) # سيعرض الجداول بشكل أنيق هنا
+            
+            with tab2:
+                st.info("نصيحة: يمكنك نسخ هذه الجداول مباشرة ولصقها في ملف Excel للعمل عليها.")
+                
         except Exception as e:
-            st.error(f"حدث خطأ أثناء التحليل: {e}")
+            st.error(f"حدث خطأ أثناء التنظيم: {e}")
 
-st.markdown("<hr><center>مؤسسة بوشناف منذر للأشغال - سوق أهراس</center>", unsafe_allow_html=True)
+st.markdown("<br><hr><center>مؤسسة بوشناف منذر للأشغال - برنامج إدارة المشاريع الذكي © 2026</center>", unsafe_allow_html=True)
