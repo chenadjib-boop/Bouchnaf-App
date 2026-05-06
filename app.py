@@ -26,7 +26,7 @@ system_instruction = """أنت مهندس متخصص في الصفقات الع�
 3. قائمة العتاد (المعدات) والعمالة المطلوبة في الموقع."""
 
 model = genai.GenerativeModel(
-    model_name="gemini-1.5-pro",
+    model_name="gemini-1.5-flash",
     system_instruction=system_instruction
 )
 
