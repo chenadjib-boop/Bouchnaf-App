@@ -1,60 +1,63 @@
 import streamlit as st
 import google.generativeai as genai
-import tempfile
 import os
 
-# إعداد واجهة البرنامج
-st.set_page_config(page_title="مؤسسة بوشناف منذر لأشغال البناء", layout="wide")
+# 1. إعدادات الواجهة (هوية مؤسسة بوشناف)
+st.set_page_config(page_title="مؤسسة بوشناف منذر للأشغال", layout="wide")
 
 st.markdown("""
     <div style="text-align: center;">
-        <h1>🏗️ نظام تحليل دفاتر الشروط الذكي</h1>
-        <h3>مؤسسة بوشناف منذر لأشغال البناء والري</h3>
+        <h1 style="color: #1E1E1E;">🏗️ نظام تحليل دفاتر الشروط</h1>
+        <h3 style="color: #4A4A4A;">مؤسسة بوشناف منذر لأشغال البناء والري</h3>
     </div>
     <hr>
 """, unsafe_allow_html=True)
 
-# استدعاء مفتاح API
-if "GOOGLE_API_KEY" not in st.secrets:
-    st.error("يرجى إضافة GOOGLE_API_KEY في إعدادات Secrets في Streamlit")
+# 2. جلب المفتاح السري من الإعدادات
+try:
+    api_key = st.secrets["GOOGLE_API_KEY"]
+    genai.configure(api_key=api_key)
+except:
+    st.error("خطأ: لم يتم العثور على مفتاح API في الإعدادات (Secrets).")
     st.stop()
 
-api_key = st.secrets["GOOGLE_API_KEY"]
-genai.configure(api_key=api_key)
+# 3. إعداد المحرك الكلاسيكي (الأكثر توافقاً لضمان عدم ظهور خطأ 404)
+# استخدمنا gemini-pro لأنه يدعم معظم المفاتيح القديمة والجديدة
+model = genai.GenerativeModel('gemini-pro')
 
-# تعليمات المهندس الرقمي
-system_instruction = """أنت مهندس متخصص في الصفقات العمومية والري في الجزائر. 
-عند رفع دفتر شروط، قم بإنتاج تقرير منظم يحتوي على:
-1. جدول الأسعار الوحدوية (BPU) بالكامل (رقم البند، البيان، الوحدة، الكمية).
-2. جدول المخطط الزمني (Planning) مقسم لأسابيع.
-3. قائمة العتاد (المعدات) والعمالة المطلوبة في الموقع."""
-
-# اختيار النموذج بشكل صحيح لتجنب خطأ 404
-model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
-    system_instruction=system_instruction
-)
-
-# منطقة رفع الملفات
-uploaded_file = st.file_uploader("ارفع دفتر الشروط (PDF) الخاص بالمشروع هنا", type=["pdf"])
+# 4. واجهة رفع الملفات
+uploaded_file = st.file_uploader("ارفع ملف دفتر الشروط بصيغة PDF", type=["pdf"])
 
 if uploaded_file:
-    with st.spinner("جاري تحليل المشروع..."):
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            tmp.write(uploaded_file.getvalue())
-            tmp_path = tmp.name
-
+    with st.spinner("جاري قراءة البيانات وتنظيم الجداول..."):
         try:
-            # رفع الملف لجوجل
-            gen_file = genai.upload_file(path=tmp_path)
-            # توليد المحتوى
-            response = model.generate_content([gen_file, "حلل هذا المشروع وأعطني الجداول كاملة"])
+            # قراءة النص من ملف PDF المرفوع مباشرة
+            import PyPDF2
+            pdf_reader = PyPDF2.PdfReader(uploaded_file)
+            text_content = ""
+            for page in pdf_reader.pages:
+                text_content += page.extract_text()
+
+            # إرسال النص للمحرك مع التعليمات
+            prompt = f"""
+            أنت مهندس متخصص في الصفقات العمومية بالجزائر. 
+            بناءً على النص التالي من دفتر الشروط، استخرج ما يلي في جداول منظمة:
+            1. جدول الأسعار (BPU) مع الكميات والبيان.
+            2. المخطط الزمني للتنفيذ (Planning).
+            3. قائمة المعدات والعمالة المطلوبة.
             
-            # عرض النتائج
+            النص المستخرج:
+            {text_content[:15000]} 
+            """
+            
+            response = model.generate_content(prompt)
+            
+            # 5. عرض النتائج النهائية
+            st.success("تم التحليل بنجاح!")
             st.markdown(response.text)
             
         except Exception as e:
-            st.error(f"حدث خطأ أثناء المعالجة: {e}")
-        finally:
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
+            st.error(f"عذراً، حدث خطأ: {str(e)}")
+            st.info("نصيحة: تأكد من أن مفتاح API صحيح ونشط في حسابك على Google AI Studio.")
+
+st.markdown("<br><hr><center>جميع الحقوق محفوظة لمؤسسة بوشناف منذر © 2026</center>", unsafe_allow_html=True)
