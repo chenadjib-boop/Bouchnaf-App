@@ -26,8 +26,18 @@ system_instruction = """أنت مهندس متخصص في الصفقات الع�
 3. قائمة العتاد (المعدات) والعمالة المطلوبة في الموقع."""
 
 model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
-    system_instruction=system_instruction
+    # كود مرن لاختيار النموذج المتاح وتجنب خطأ 404
+try:
+    model = genai.GenerativeModel(
+        model_name="gemini-1.5-flash-latest",
+        system_instruction=system_instruction
+    )
+except:
+    model = genai.GenerativeModel(
+        model_name="gemini-pro",
+        system_instruction=system_instruction
+    )
+
 )
 
 # منطقة رفع الملفات
