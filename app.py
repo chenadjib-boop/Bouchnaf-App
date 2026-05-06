@@ -3,7 +3,7 @@ import google.generativeai as genai
 import tempfile
 import os
 
-# إعداد واجهة البرنامج الاحترافية
+# إعداد واجهة البرنامج
 st.set_page_config(page_title="مؤسسة بوشناف منذر لأشغال البناء", layout="wide")
 
 st.markdown("""
@@ -14,54 +14,47 @@ st.markdown("""
     <hr>
 """, unsafe_allow_html=True)
 
-# استدعاء مفتاح API بأمان من إعدادات النظام
+# استدعاء مفتاح API
+if "GOOGLE_API_KEY" not in st.secrets:
+    st.error("يرجى إضافة GOOGLE_API_KEY في إعدادات Secrets في Streamlit")
+    st.stop()
+
 api_key = st.secrets["GOOGLE_API_KEY"]
 genai.configure(api_key=api_key)
 
-# تعليمات المهندس الرقمي (عقل البرنامج)
+# تعليمات المهندس الرقمي
 system_instruction = """أنت مهندس متخصص في الصفقات العمومية والري في الجزائر. 
 عند رفع دفتر شروط، قم بإنتاج تقرير منظم يحتوي على:
 1. جدول الأسعار الوحدوية (BPU) بالكامل (رقم البند، البيان، الوحدة، الكمية).
-2. جدول المخطط الزمني (Planning) مقسم لأسابيع (مثلاً لمشروع 90 يوم).
+2. جدول المخطط الزمني (Planning) مقسم لأسابيع.
 3. قائمة العتاد (المعدات) والعمالة المطلوبة في الموقع."""
 
+# اختيار النموذج بشكل صحيح لتجنب خطأ 404
 model = genai.GenerativeModel(
-    # كود مرن لاختيار النموذج المتاح وتجنب خطأ 404
-try:
-    model = genai.GenerativeModel(
-        model_name="gemini-1.5-flash-latest",
-        system_instruction=system_instruction
-    )
-except:
-    model = genai.GenerativeModel(
-        model_name="gemini-pro",
-        system_instruction=system_instruction
-    )
-
+    model_name="gemini-1.5-flash",
+    system_instruction=system_instruction
 )
 
 # منطقة رفع الملفات
 uploaded_file = st.file_uploader("ارفع دفتر الشروط (PDF) الخاص بالمشروع هنا", type=["pdf"])
 
 if uploaded_file:
-    with st.spinner("جاري تحليل المشروع وتوليد جداول الأسعار والمهام..."):
+    with st.spinner("جاري تحليل المشروع..."):
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             tmp.write(uploaded_file.getvalue())
             tmp_path = tmp.name
 
         try:
-            # رفع الملف لجوجل ومعالجته
+            # رفع الملف لجوجل
             gen_file = genai.upload_file(path=tmp_path)
+            # توليد المحتوى
             response = model.generate_content([gen_file, "حلل هذا المشروع وأعطني الجداول كاملة"])
             
-            # عرض النتائج في تبويبات منظمة
-            tab1, tab2 = st.tabs(["📊 التحليل والجداول", "📋 قائمة المهام التنفيذية"])
-            with tab1:
-                st.markdown(response.text)
-            with tab2:
-                st.info("نصيحة: يمكنك نسخ هذه الجداول مباشرة لملفات Excel.")
+            # عرض النتائج
+            st.markdown(response.text)
+            
         except Exception as e:
-            st.error(f"حدث خطأ: {e}")
+            st.error(f"حدث خطأ أثناء المعالجة: {e}")
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
