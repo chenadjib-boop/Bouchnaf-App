@@ -3,73 +3,103 @@ import google.generativeai as genai
 import PyPDF2
 import pandas as pd
 
-# 1. إعدادات النظام الاحترافي
-st.set_page_config(page_title="Bouchnaf Construction ERP", layout="wide")
+# 1. ضبط اتجاه الصفحة (من اليمين إلى اليسار) وتنسيق الخطوط
+st.set_page_config(page_title="نظام بوشناف لإدارة المشاريع", layout="wide")
 
 st.markdown("""
-    <h1 style='text-align: center; color: #1E3A8A;'>🏗️ نظام بوشناف لإدارة الأشغال والري</h1>
-    <p style='text-align: center; font-weight: bold;'>التحول الرقمي لمتابعة المشاريع (بئر غبالو / حريملة)</p>
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+    html, body, [data-testid="stSidebar"], .stMarkdown {
+        direction: RTL;
+        text-align: right;
+        font-family: 'Cairo', sans-serif;
+    }
+    .stTable { direction: RTL !important; text-align: right !important; }
+    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #1E3A8A; color: white; }
+    </style>
+    <div style='text-align: center; background-color: #1E3A8A; padding: 20px; border-radius: 10px;'>
+        <h1 style='color: white;'>🏗️ نظام إدارة المشاريع - مؤسسة بوشناف منذر</h1>
+        <p style='color: #d1d5db;'>توليد وضعيات الأشغال وتحليل دفاتر الشروط (BPU/DQE)</p>
+    </div>
     <hr>
 """, unsafe_allow_html=True)
 
-# 2. ربط الذكاء الاصطناعي (المحرك الذكي)
+# 2. إعداد الاتصال بالذكاء الاصطناعي
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
-    # اختيار الموديل تلقائياً لتجنب أخطاء 404
     models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
     model = genai.GenerativeModel(models[0])
 except:
-    st.error("خطأ في الربط التقني بمحرك جوجل.")
+    st.error("خطأ في الاتصال بالخادم. تأكد من مفتاح الـ API.")
     st.stop()
 
-# 3. إدارة الجلسة وتخزين البيانات
-if 'project_data' not in st.session_state:
-    st.session_state.project_data = None
+# 3. إدارة البيانات
+if 'project_df' not in st.session_state:
+    st.session_state.project_df = None
 
-# --- القائمة الرئيسية للمقاول ---
-menu = st.sidebar.radio("لوحة التحكم", ["📊 استخراج بيانات الصفقة (BPU)", "🚧 متابعة الورشة اليومية", "💰 الوضعية المالية (Situation)"])
+# --- القائمة الجانبية ---
+st.sidebar.title("القائمة الرئيسية")
+menu = st.sidebar.radio("", ["📁 استيراد مشروع جديد", "🚧 متابعة الورشة والتقدم", "📄 توليد وضعية الأشغال (Situation)"])
 
-# --- المرحلة 1: استخراج البيانات ---
-if menu == "📊 استخراج بيانات الصفقة (BPU)":
-    st.header("تفكيك دفتر الشروط (Extraction)")
-    file = st.file_uploader("ارفع دفتر الشروط PDF", type=["pdf"])
-    if file and st.button("تحليل الصفقة"):
-        with st.spinner("جاري تحويل النصوص إلى أرقام وكميات..."):
+# --- المرحلة 1: استخراج BPU ---
+if menu == "📁 استيراد مشروع جديد":
+    st.header("📂 استخراج جدول الأسعار والكميات")
+    file = st.file_uploader("ارفع دفتر الشروط (PDF)", type=["pdf"])
+    if file and st.button("تحليل الدفتر واستخراج البيانات"):
+        with st.spinner("جاري قراءة البيانات وتنسيق الجداول..."):
             reader = PyPDF2.PdfReader(file)
-            text = "".join([p.extract_text() for p in reader.pages[:15]]) # قراءة صفحات أكثر
+            text = "".join([p.extract_text() for p in reader.pages[:15]])
             
-            # طلب استخراج جدول احترافي
-            prompt = f"""حلل هذا الدفتر واستخرج جدول الأسعار (BPU) بالصيغة التالية فقط:
-            البند | البيان | الوحدة | الكمية | السعر الوحدوي
-            النص المستخرج: {text}"""
-            
+            prompt = f"استخرج جدول الأسعار (BPU) من هذا النص. أريد النتائج في جدول بأعمدة: الرقم، التعيين، الوحدة، الكمية، السعر الوحدوي. النص: {text}"
             response = model.generate_content(prompt)
-            st.markdown("### جدول الأسعار والكميات المستخرج:")
+            
+            st.markdown("### الجدول المستخرج من دفتر الشروط:")
             st.write(response.text)
-            st.info("قم بنسخ هذه البيانات إلى قسم المتابعة أدناه للبدء.")
+            st.info("ملاحظة: يمكنك نسخ هذا الجدول لاستخدامه في النظام.")
 
-# --- المرحلة 2: متابعة الورشة (هنا يتدخل مسؤول المشروع) ---
-elif menu == "🚧 متابعة الورشة اليومية":
-    st.header("👷 سجل المتابعة اليومي - مسؤول الموقع")
-    st.subheader("تحديث حالة تنفيذ البنود")
+# --- المرحلة 2: متابعة التقدم ---
+elif menu == "🚧 متابعة الورشة والتقدم":
+    st.header("🚧 تحديث التقدم الميداني")
+    st.info("هنا يقوم مسؤول المشروع بتحديث نسب الإنجاز الفعلية.")
     
-    # مثال لجدول تفاعلي (يمكن تطويره ليرتبط بالبيانات المستخرجة)
-    items = ["حفر البئر (Forage)", "التجهيز بالأنابيب", "تجارب الضخ", "بناء الغرفة التقنية"]
-    for item in items:
-        with st.expander(f"بند: {item}"):
-            c1, c2, c3 = st.columns(3)
-            with c1: st.slider("نسبة الإنجاز %", 0, 100, key=f"p_{item}")
-            with c2: st.number_input("الكمية المنجزة اليوم", key=f"q_{item}")
-            with c3: st.multiselect("العتاد المستخدم", ["حفارة", "شاحنة رافعة", "ضاغط هواء"], key=f"e_{item}")
+    # نموذج تفاعلي لإدخال التقدم (يمكن ربطه بقاعدة بيانات لاحقاً)
+    with st.form("progress_form"):
+        st.subheader("إدخال الكميات المنجزة")
+        c1, c2, c3 = st.columns(3)
+        with c1: item_name = st.text_input("تعيين البند (مثال: حفر البئر)")
+        with c2: total_qty = st.number_input("الكمية الكلية في العقد", min_value=0.0)
+        with c3: done_qty = st.number_input("الكمية المنجزة حالياً", min_value=0.0)
+        
+        if st.form_submit_button("حفظ التقدم"):
+            st.success(f"تم تسجيل {done_qty} من {total_qty} لبند {item_name}")
 
-# --- المرحلة 3: الوضعية المالية (لب المشروع) ---
-elif menu == "💰 الوضعية المالية (Situation)":
-    st.header("📉 كشف وضعية الأشغال (Situation N°)")
-    st.write("هنا يتم حساب المبالغ المالية المستحقة للمؤسسة بناءً على ما تم إنجازه فعلياً.")
+# --- المرحلة 3: وضعية الأشغال الاحترافية ---
+elif menu == "📄 توليد وضعية الأشغال (Situation)":
+    st.header("📄 كشف وضعية الأشغال رقم 01")
+    st.write("**المشروع:** إنجاز ثقب مائي ببلدية بئر غبالو")
+    st.write("**المقاول:** مؤسسة بوشناف منذر")
     
-    # عرض رسم بياني لتقدم المشروع
-    chart_data = pd.DataFrame({"البند": ["حفر", "أنابيب", "بناء"], "الإنجاز": [80, 40, 10]})
-    st.bar_chart(chart_data, x="البند", y="الإنجاز")
+    # إنشاء نموذج جدول وضعية أشغال جزائري احترافي
+    data = {
+        "رقم البند": ["01", "02", "03"],
+        "تعيين الأشغال": ["تنصيب الورشة", "الحفر الميكانيكي (Forage)", "التجهيز بالأنابيب"],
+        "الوحدة": ["F", "ML", "ML"],
+        "السعر الوحدوي (DA)": [150000, 8000, 4500],
+        "الكمية المتعاقد عليها": [1, 120, 120],
+        "الكمية المنجزة (سابقاً)": [0, 0, 0],
+        "الكمية المنجزة (حالياً)": [1, 45, 0],
+    }
     
-    st.button("توليد ملف الوضعية المالية")
+    df = pd.DataFrame(data)
+    # حساب المبالغ تلقائياً
+    df["المبلغ الحالي (HT)"] = df["الكمية المنجزة (حالياً)"] * df["السعر الوحدوي (DA)"]
+    df["نسبة الإنجاز %"] = (df["الكمية المنجزة (حالياً)"] / df["الكمية المتعاقد عليها"]) * 100
+    
+    st.table(df)
+    
+    total_amount = df["المبلغ الحالي (HT)"].sum()
+    st.metric("إجمالي المبلغ المستحق (بدون رسوم)", f"{total_amount:,.2f} د.ج")
+    
+    if st.button("تصدير الوضعية إلى Excel"):
+        st.write("جاري التحميل...")
