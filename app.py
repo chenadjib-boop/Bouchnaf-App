@@ -1,68 +1,80 @@
 import streamlit as st
 import google.generativeai as genai
 import PyPDF2
+import pandas as pd
+from datetime import datetime
 
-# 1. إعدادات الواجهة الاحترافية
-st.set_page_config(page_title="مؤسسة بوشناف منذر", layout="wide")
-st.markdown("""
-    <style>
-    .main { background-color: #f5f5f5; }
-    .stTable { background-color: white; }
-    </style>
-    <h1 style='text-align: center; color: #1E3A8A;'>🏗️ لوحة تحكم المشاريع - مؤسسة بوشناف</h1>
-    <hr>
-""", unsafe_allow_html=True)
+# 1. إعدادات الهوية البصرية
+st.set_page_config(page_title="نظام بوشناف لإدارة المشاريع", layout="wide")
+st.markdown("<h1 style='text-align: center; color: #1E3A8A;'>🏗️ نظام إدارة وتنفيذ المشاريع - مؤسسة بوشناف</h1>", unsafe_allow_html=True)
 
-# 2. إعداد الاتصال التلقائي
+# 2. إعداد قاعدة بيانات بسيطة في ذاكرة البرنامج (Session State)
+if 'tasks' not in st.session_state:
+    st.session_state.tasks = []
+
+# 3. ربط الذكاء الاصطناعي (العقل المدبر)
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
-    available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-    model = genai.GenerativeModel(available_models[0])
-except Exception as e:
-    st.error(f"خطأ في الإعدادات: {e}")
+    model = genai.GenerativeModel('gemini-pro')
+except:
+    st.error("يرجى ضبط مفتاح API أولاً.")
     st.stop()
 
-# 3. رفع ومعالجة الملف
-uploaded_file = st.file_uploader("ارفع دفتر الشروط (PDF) لتحويله إلى جداول تنفيذية", type=["pdf"])
+# --- القائمة الجانبية للتنقل ---
+menu = st.sidebar.radio("القائمة الرئيسية", ["تحليل دفتر شروط جديد", "متابعة تقدم الأشغال اليومية", "وضعية المشروع (Situations)"])
 
-if uploaded_file:
-    with st.spinner("جاري تحويل نص دفتر الشروط إلى جداول منظمة..."):
-        try:
+# --- المرحلة 1: تحليل دفتر الشروط وخلق المهام ---
+if menu == "تحليل دفتر شروط جديد":
+    st.header("📂 استيراد مشروع جديد")
+    uploaded_file = st.file_uploader("ارفع ملف PDF (بئر غبالو، حريملة، إلخ)", type=["pdf"])
+    
+    if uploaded_file and st.button("بدء المعالجة الذكية"):
+        with st.spinner("جاري استخراج البيانات وبناء خطة العمل..."):
             pdf_reader = PyPDF2.PdfReader(uploaded_file)
-            text_content = ""
-            for page in pdf_reader.pages[:15]: # زيادة عدد الصفحات لضمان شمولية البيانات
-                text_content += page.extract_text()
-
-            # تطوير الطلب للحصول على جداول حقيقية
-            prompt = f"""
-            بصفتك مهندس إدارة مشاريع، حلل النص التالي المستخرج من دفتر شروط في الجزائر.
-            يجب أن تكون المخرجات دقيقة وفي شكل جداول Markdown فقط كما يلي:
-
-            1. **جدول الأسعار الوحدوية (BPU)**: (الرقم، بيان الأعمال، الوحدة، الكمية التقديرية).
-            2. **جدول المخطط الزمني**: (المرحلة، مدة الإنجاز المتوقعة، الأسبوع المستهدف).
-            3. **قائمة الاحتياجات الميدانية**: (نوع العتاد، عدد العمال المطلوبين).
-
-            النص:
-            {text_content}
-            """
+            text = "".join([p.extract_text() for p in pdf_reader.pages[:10]])
             
+            prompt = f"حلل هذا النص واستخرج المهام الكبرى للمشروع في شكل قائمة مفصولة بفاصلة فقط. النص: {text}"
             response = model.generate_content(prompt)
             
-            # 4. عرض النتائج في تبويبات (Tabs) لتنظيم العرض
-            tab1, tab2, tab3 = st.tabs(["📊 جداول الأسعار (BPU)", "📅 المخطط الزمني", "🔧 العتاد والعمالة"])
-            
-            # تقسيم الاستجابة (محاولة بسيطة لعرض كل جزء في تبويبه)
-            results = response.text.split("###") # يفترض أن الذكاء الاصطناعي يستخدم العناوين
-            
-            with tab1:
-                st.markdown("### نتائج تحليل الأسعار")
-                st.markdown(response.text) # سيعرض الجداول بشكل أنيق هنا
-            
-            with tab2:
-                st.info("نصيحة: يمكنك نسخ هذه الجداول مباشرة ولصقها في ملف Excel للعمل عليها.")
-                
-        except Exception as e:
-            st.error(f"حدث خطأ أثناء التنظيم: {e}")
+            # تحويل النص إلى قائمة مهام في قاعدة البيانات
+            extracted_tasks = response.text.split(",")
+            st.session_state.tasks = [{"المهمة": t.strip(), "التقدم": 0, "الحالة": "لم تبدأ"} for t in extracted_tasks]
+            st.success("تم استخراج المهام بنجاح! انتقل الآن لصفحة متابعة الأشغال.")
 
-st.markdown("<br><hr><center>مؤسسة بوشناف منذر للأشغال - برنامج إدارة المشاريع الذكي © 2026</center>", unsafe_allow_html=True)
+# --- المرحلة 2: واجهة مسؤول المشروع (تحديث التقدم) ---
+elif menu == "متابعة تقدم الأشغال اليومية":
+    st.header("👷 لوحة تحكم مسؤول الموقع")
+    if not st.session_state.tasks:
+        st.warning("لا توجد مهام حالية. يرجى رفع دفتر الشروط أولاً.")
+    else:
+        st.subheader("تحديث نسبة الإنجاز اليومية")
+        for i, task in enumerate(st.session_state.tasks):
+            cols = st.columns([3, 2, 1])
+            with cols[0]:
+                st.write(f"**{task['المهمة']}**")
+            with cols[1]:
+                new_progress = st.slider("نسبة الإنجاز %", 0, 100, task['التقدم'], key=f"slider_{i}")
+                st.session_state.tasks[i]['التقدم'] = new_progress
+            with cols[2]:
+                if new_progress == 100: st.success("مكتملة")
+                elif new_progress > 0: st.info("جارية")
+                else: st.dark_content("منتظرة")
+
+# --- المرحلة 3: وضعية الأشغال والتقارير ---
+elif menu == "وضعية المشروع (Situations)":
+    st.header("📊 وضعية الأشغال الحالية")
+    if st.session_state.tasks:
+        df = pd.DataFrame(st.session_state.tasks)
+        st.table(df)
+        
+        # حساب النسبة الكلية للمشروع
+        total_progress = df['التقدم'].mean()
+        st.metric("نسبة تقدم المشروع الكلية", f"{total_progress:.2f}%")
+        st.progress(total_progress / 100)
+        
+        if st.button("توليد تقرير للمدير"):
+            st.write(f"تقرير يوم: {datetime.now().strftime('%Y-%m-%d')}")
+            st.write("المشروع يسير وفق الخطة (مثال) - يرجى توفير عتاد الحفر للمرحلة القادمة.")
+    else:
+        st.error("لا توجد بيانات لعرضها.")
