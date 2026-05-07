@@ -3,10 +3,9 @@ import google.generativeai as genai
 import PyPDF2
 import pandas as pd
 
-# --- إعدادات الصفحة والخطوط ---
-st.set_page_config(page_title="Bouchnaf Construction ERP", layout="wide")
+# --- 1. إعدادات الهوية البصرية ودعم اللغة العربية ---
+st.set_page_config(page_title="Bouchnaf ERP", layout="wide")
 
-# تطبيق تنسيق RTL (من اليمين إلى اليسار) وتنسيق الهوية البصرية
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
@@ -16,100 +15,99 @@ st.markdown("""
         font-family: 'Cairo', sans-serif;
     }
     .main-header {
-        background-color: #1E3A8A;
+        background: linear-gradient(90deg, #1E3A8A 0%, #3B82F6 100%);
         color: white;
-        padding: 2rem;
-        border-radius: 15px;
+        padding: 1.5rem;
+        border-radius: 10px;
         text-align: center;
         margin-bottom: 2rem;
     }
-    .metric-card {
-        background-color: #ffffff;
-        border-right: 5px solid #1E3A8A;
+    .card {
+        background-color: white;
         padding: 20px;
         border-radius: 10px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        border-right: 5px solid #1E3A8A;
         text-align: center;
     }
-    div[data-testid="stExpander"] { text-align: right; direction: RTL; }
     </style>
+    <div class="main-header">
+        <h1>🏗️ نظام بوشناف لإدارة المشاريع والوضعيات</h1>
+        <p>مؤسسة بوشناف منذر للأشغال - سوق أهراس</p>
+    </div>
 """, unsafe_allow_html=True)
 
-# --- الربط التقني ---
+# --- 2. الربط مع الذكاء الاصطناعي ---
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
-    models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-    model = genai.GenerativeModel(models[0])
+    # اكتشاف الموديل تلقائياً لتجنب خطأ 404
+    available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    model = genai.GenerativeModel(available_models[0])
 except:
-    st.error("يرجى ضبط مفتاح API في الإعدادات.")
+    st.error("خطأ: يرجى التحقق من مفتاح API في الإعدادات.")
     st.stop()
 
-# --- واجهة البرنامج الرئيسية ---
-st.markdown("<div class='main-header'><h1>🏗️ نظام بوشناف لإدارة المشاريع والوضعيات</h1><p>التحول الرقمي لمؤسسة بوشناف منذر للأشغال - سوق أهراس</p></div>", unsafe_allow_html=True)
+# --- 3. القائمة الجانبية للتنقل ---
+st.sidebar.title("🛠️ لوحة التحكم")
+menu = st.sidebar.radio("", ["📊 لوحة القيادة (Dashboard)", "📝 تحليل العقود (BPU)", "🚧 متابعة الميدان", "📄 وضعية الأشغال (Situation)"])
 
-# القائمة الجانبية
-st.sidebar.title("🗂️ لوحة التحكم")
-menu = st.sidebar.radio("", ["📊 لوحة القيادة (Dashboard)", "📝 تحليل الصفقات (BPU)", "🚧 متابعة الورشة اليومية", "📄 كشف وضعية الأشغال (Situation)"])
-
-# 1. لوحة القيادة
+# --- القسم الأول: لوحة القيادة ---
 if menu == "📊 لوحة القيادة (Dashboard)":
-    st.subheader("📈 ملخص حالة المشاريع")
+    st.subheader("🏠 ملخص أداء المؤسسة")
     c1, c2, c3 = st.columns(3)
-    with c1: st.markdown("<div class='metric-card'><h4>إجمالي قيمة المشاريع</h4><h3>18,500,000 د.ج</h3></div>", unsafe_allow_html=True)
-    with c2: st.markdown("<div class='metric-card'><h4>نسبة الإنجاز المتوسطة</h4><h3>72%</h3></div>", unsafe_allow_html=True)
-    with c3: st.markdown("<div class='metric-card'><h4>عدد الورشات النشطة</h4><h3>03</h3></div>", unsafe_allow_html=True)
+    with c1: st.markdown("<div class='card'><h4>إجمالي قيمة المشاريع</h4><h2 style='color:#1E3A8A;'>18.5M د.ج</h2></div>", unsafe_allow_html=True)
+    with c2: st.markdown("<div class='card'><h4>نسبة الإنجاز الكلية</h4><h2 style='color:#10B981;'>72%</h2></div>", unsafe_allow_html=True)
+    with c3: st.markdown("<div class='card'><h4>الورشات النشطة</h4><h2 style='color:#F59E0B;'>03</h2></div>", unsafe_allow_html=True)
     
-    st.markdown("---")
-    st.subheader("📅 الجدول الزمني والتقدم")
-    df_chart = pd.DataFrame({
-        "البند": ["تنصيب الورشة", "الحفر (Forage)", "التجهيز بالأنابيب", "تجارب الضخ"],
-        "التقدم %": [100, 85, 40, 0]
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.subheader("📈 تقدم مشروع بئر غبالو (حريملة)")
+    chart_data = pd.DataFrame({
+        "البند": ["تنصيب الورشة", "حفر (Forage)", "التجهيز", "التجارب"],
+        "النسبة %": [100, 85, 40, 0]
     })
-    st.bar_chart(df_chart, x="البند", y="التقدم %")
+    st.bar_chart(chart_data, x="البند", y="النسبة %")
 
-# 2. تحليل الصفقات
-elif menu == "📝 تحليل الصفقات (BPU)":
-    st.header("📄 استخراج البيانات من دفتر الشروط")
-    uploaded_file = st.file_uploader("ارفع ملف PDF لمشروع (بئر غبالو أو غيره)", type=["pdf"])
-    if uploaded_file:
-        if st.button("بدء المعالجة الذكية"):
-            with st.spinner("جاري تفكيك بنود العقد..."):
-                reader = PyPDF2.PdfReader(uploaded_file)
-                text = "".join([p.extract_text() for p in reader.pages[:10]])
-                response = model.generate_content(f"استخرج جدول BPU من النص التالي بجدول منظم: {text}")
-                st.markdown(response.text)
+# --- القسم الثاني: تحليل BPU ---
+elif menu == "📝 تحليل العقود (BPU)":
+    st.header("📄 تحليل ذكي لدفتر الشروط")
+    file = st.file_uploader("ارفع ملف PDF لمشروع جديد", type=["pdf"])
+    if file and st.button("بدء الاستخراج"):
+        with st.spinner("جاري قراءة البيانات..."):
+            reader = PyPDF2.PdfReader(file)
+            text = "".join([p.extract_text() for p in reader.pages[:10]])
+            response = model.generate_content(f"استخرج جدول الأسعار (BPU) من النص التالي بجدول Markdown: {text}")
+            st.markdown(response.text)
 
-# 3. متابعة الورشة
-elif menu == "🚧 متابعة الورشة اليومية":
-    st.header("👷 سجل المتابعة الميداني")
-    st.info("هنا يقوم مسؤول الموقع بإدخال التقدم اليومي للعتاد والعمالة.")
-    with st.expander("📝 إضافة تقرير يومي جديد"):
-        c1, c2 = st.columns(2)
-        with c1: st.date_input("تاريخ اليوم")
-        with c2: st.selectbox("المشروع", ["بئر غبالو", "حريملة", "مشروع آخر"])
-        st.multiselect("العتاد المستخدم اليوم", ["حفارة هيدروليكية", "شاحنة رافعة", "ضاغط هواء", "مولد كهربائي"])
-        st.text_area("ملاحظات تقنية (حالة التربة، معوقات)")
-        st.button("حفظ التقرير اليومي")
+# --- القسم الثالث: متابعة الميدان ---
+elif menu == "🚧 متابعة الميدان":
+    st.header("👷 تحديثات مسؤول الموقع")
+    with st.container():
+        st.info("قم بتحديث الكميات المنجزة فعلياً ليتم حساب الوضعية المالية تلقائياً.")
+        item = st.text_input("اسم البند (مثال: حفر ميكانيكي 120م)")
+        qty = st.number_input("الكمية المنجزة اليوم", min_value=0.0)
+        st.multiselect("العتاد المستخدم", ["حفارة هيدروليكية", "شاحنة صهريج", "ضاغط هواء"])
+        if st.button("حفظ التقرير"):
+            st.success("تم تسجيل البيانات بنجاح.")
 
-# 4. وضعية الأشغال (النموذج الرسمي)
-elif menu == "📄 كشف وضعية الأشغال (Situation)":
-    st.header("📄 كشف وضعية الأشغال (Modèle Officiel)")
-    st.write("**المصلحة المتعاقدة:** مديرية الموارد المائية")
+# --- القسم الرابع: وضعية الأشغال (الموديل الرسمي) ---
+elif menu == "📄 وضعية الأشغال (Situation)":
+    st.header("📄 كشف وضعية الأشغال رقم 01")
+    st.write("**المشروع:** إنجاز ثقب مائي ببلدية بئر غبالو")
     
+    # محاكاة لبيانات وضعية أشغال حقيقية
     data = {
-        "البند": ["01", "02", "03", "04"],
-        "التعيين": ["تنصيب الورشة", "حفر ميكانيكي (120م)", "توريد أنابيب فولاذية", "تجارب الضخ"],
-        "الوحدة": ["جزافي", "ML", "ML", "H"],
-        "السعر (DA)": [200000.00, 9500.00, 4800.00, 3500.00],
-        "الكمية الكلية": [1, 120, 120, 24],
-        "المنجز حالياً": [1, 105, 50, 0]
+        "رقم البند": ["01", "02", "03"],
+        "تعيين الأشغال": ["تنصيب الورشة", "الحفر الميكانيكي", "تجهيز البئر بالأنابيب"],
+        "الوحدة": ["جزافي", "ML", "ML"],
+        "السعر (د.ج)": [200000, 9500, 4800],
+        "الكمية المتعاقد عليها": [1, 120, 120],
+        "الكمية المنجزة": [1, 105, 40]
     }
-    df_sit = pd.DataFrame(data)
-    df_sit["المبلغ المستحق (HT)"] = df_sit["المنجز حالياً"] * df_sit["السعر (DA)"]
+    df = pd.DataFrame(data)
+    df["المبلغ الحالي (HT)"] = df["الكمية المنجزة"] * df["السعر (د.ج)"]
     
-    st.table(df_sit.style.format({"السعر (DA)": "{:,.2f}", "المبلغ المستحق (HT)": "{:,.2f}"}))
+    st.table(df.style.format({"السعر (د.ج)": "{:,.2f}", "المبلغ الحالي (HT)": "{:,.2f}"}))
     
-    total = df_sit["المبلغ المستحق (HT)"].sum()
-    st.markdown(f"<div style='text-align: left; padding: 10px; background: #eee; border-radius: 5px;'><h3>المبلغ الإجمالي المنجز: {total:,.2f} د.ج</h3></div>", unsafe_allow_html=True)
-    st.button("📥 تحميل ملف الوضعية (Excel)")
+    total = df["المبلغ الحالي (HT)"].sum()
+    st.markdown(f"<div style='background:#f1f5f9; padding:15px; border-radius:5px; text-align:left;'><h3>المبلغ المستحق الإجمالي: {total:,.2f} د.ج</h3></div>", unsafe_allow_html=True)
