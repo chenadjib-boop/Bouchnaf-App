@@ -3,103 +3,113 @@ import google.generativeai as genai
 import PyPDF2
 import pandas as pd
 
-# 1. ضبط اتجاه الصفحة (من اليمين إلى اليسار) وتنسيق الخطوط
-st.set_page_config(page_title="نظام بوشناف لإدارة المشاريع", layout="wide")
+# --- إعدادات الصفحة والخطوط ---
+st.set_page_config(page_title="Bouchnaf Construction ERP", layout="wide")
 
+# تطبيق تنسيق RTL (من اليمين إلى اليسار) وتنسيق الهوية البصرية
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
-    html, body, [data-testid="stSidebar"], .stMarkdown {
+    html, body, [data-testid="stSidebar"], .stMarkdown, .stTable, .stDataFrame {
         direction: RTL;
         text-align: right;
         font-family: 'Cairo', sans-serif;
     }
-    .stTable { direction: RTL !important; text-align: right !important; }
-    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #1E3A8A; color: white; }
+    .main-header {
+        background-color: #1E3A8A;
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .metric-card {
+        background-color: #ffffff;
+        border-right: 5px solid #1E3A8A;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    div[data-testid="stExpander"] { text-align: right; direction: RTL; }
     </style>
-    <div style='text-align: center; background-color: #1E3A8A; padding: 20px; border-radius: 10px;'>
-        <h1 style='color: white;'>🏗️ نظام إدارة المشاريع - مؤسسة بوشناف منذر</h1>
-        <p style='color: #d1d5db;'>توليد وضعيات الأشغال وتحليل دفاتر الشروط (BPU/DQE)</p>
-    </div>
-    <hr>
 """, unsafe_allow_html=True)
 
-# 2. إعداد الاتصال بالذكاء الاصطناعي
+# --- الربط التقني ---
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
     models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
     model = genai.GenerativeModel(models[0])
 except:
-    st.error("خطأ في الاتصال بالخادم. تأكد من مفتاح الـ API.")
+    st.error("يرجى ضبط مفتاح API في الإعدادات.")
     st.stop()
 
-# 3. إدارة البيانات
-if 'project_df' not in st.session_state:
-    st.session_state.project_df = None
+# --- واجهة البرنامج الرئيسية ---
+st.markdown("<div class='main-header'><h1>🏗️ نظام بوشناف لإدارة المشاريع والوضعيات</h1><p>التحول الرقمي لمؤسسة بوشناف منذر للأشغال - سوق أهراس</p></div>", unsafe_allow_html=True)
 
-# --- القائمة الجانبية ---
-st.sidebar.title("القائمة الرئيسية")
-menu = st.sidebar.radio("", ["📁 استيراد مشروع جديد", "🚧 متابعة الورشة والتقدم", "📄 توليد وضعية الأشغال (Situation)"])
+# القائمة الجانبية
+st.sidebar.title("🗂️ لوحة التحكم")
+menu = st.sidebar.radio("", ["📊 لوحة القيادة (Dashboard)", "📝 تحليل الصفقات (BPU)", "🚧 متابعة الورشة اليومية", "📄 كشف وضعية الأشغال (Situation)"])
 
-# --- المرحلة 1: استخراج BPU ---
-if menu == "📁 استيراد مشروع جديد":
-    st.header("📂 استخراج جدول الأسعار والكميات")
-    file = st.file_uploader("ارفع دفتر الشروط (PDF)", type=["pdf"])
-    if file and st.button("تحليل الدفتر واستخراج البيانات"):
-        with st.spinner("جاري قراءة البيانات وتنسيق الجداول..."):
-            reader = PyPDF2.PdfReader(file)
-            text = "".join([p.extract_text() for p in reader.pages[:15]])
-            
-            prompt = f"استخرج جدول الأسعار (BPU) من هذا النص. أريد النتائج في جدول بأعمدة: الرقم، التعيين، الوحدة، الكمية، السعر الوحدوي. النص: {text}"
-            response = model.generate_content(prompt)
-            
-            st.markdown("### الجدول المستخرج من دفتر الشروط:")
-            st.write(response.text)
-            st.info("ملاحظة: يمكنك نسخ هذا الجدول لاستخدامه في النظام.")
-
-# --- المرحلة 2: متابعة التقدم ---
-elif menu == "🚧 متابعة الورشة والتقدم":
-    st.header("🚧 تحديث التقدم الميداني")
-    st.info("هنا يقوم مسؤول المشروع بتحديث نسب الإنجاز الفعلية.")
+# 1. لوحة القيادة
+if menu == "📊 لوحة القيادة (Dashboard)":
+    st.subheader("📈 ملخص حالة المشاريع")
+    c1, c2, c3 = st.columns(3)
+    with c1: st.markdown("<div class='metric-card'><h4>إجمالي قيمة المشاريع</h4><h3>18,500,000 د.ج</h3></div>", unsafe_allow_html=True)
+    with c2: st.markdown("<div class='metric-card'><h4>نسبة الإنجاز المتوسطة</h4><h3>72%</h3></div>", unsafe_allow_html=True)
+    with c3: st.markdown("<div class='metric-card'><h4>عدد الورشات النشطة</h4><h3>03</h3></div>", unsafe_allow_html=True)
     
-    # نموذج تفاعلي لإدخال التقدم (يمكن ربطه بقاعدة بيانات لاحقاً)
-    with st.form("progress_form"):
-        st.subheader("إدخال الكميات المنجزة")
-        c1, c2, c3 = st.columns(3)
-        with c1: item_name = st.text_input("تعيين البند (مثال: حفر البئر)")
-        with c2: total_qty = st.number_input("الكمية الكلية في العقد", min_value=0.0)
-        with c3: done_qty = st.number_input("الكمية المنجزة حالياً", min_value=0.0)
-        
-        if st.form_submit_button("حفظ التقدم"):
-            st.success(f"تم تسجيل {done_qty} من {total_qty} لبند {item_name}")
+    st.markdown("---")
+    st.subheader("📅 الجدول الزمني والتقدم")
+    df_chart = pd.DataFrame({
+        "البند": ["تنصيب الورشة", "الحفر (Forage)", "التجهيز بالأنابيب", "تجارب الضخ"],
+        "التقدم %": [100, 85, 40, 0]
+    })
+    st.bar_chart(df_chart, x="البند", y="التقدم %")
 
-# --- المرحلة 3: وضعية الأشغال الاحترافية ---
-elif menu == "📄 توليد وضعية الأشغال (Situation)":
-    st.header("📄 كشف وضعية الأشغال رقم 01")
-    st.write("**المشروع:** إنجاز ثقب مائي ببلدية بئر غبالو")
-    st.write("**المقاول:** مؤسسة بوشناف منذر")
+# 2. تحليل الصفقات
+elif menu == "📝 تحليل الصفقات (BPU)":
+    st.header("📄 استخراج البيانات من دفتر الشروط")
+    uploaded_file = st.file_uploader("ارفع ملف PDF لمشروع (بئر غبالو أو غيره)", type=["pdf"])
+    if uploaded_file:
+        if st.button("بدء المعالجة الذكية"):
+            with st.spinner("جاري تفكيك بنود العقد..."):
+                reader = PyPDF2.PdfReader(uploaded_file)
+                text = "".join([p.extract_text() for p in reader.pages[:10]])
+                response = model.generate_content(f"استخرج جدول BPU من النص التالي بجدول منظم: {text}")
+                st.markdown(response.text)
+
+# 3. متابعة الورشة
+elif menu == "🚧 متابعة الورشة اليومية":
+    st.header("👷 سجل المتابعة الميداني")
+    st.info("هنا يقوم مسؤول الموقع بإدخال التقدم اليومي للعتاد والعمالة.")
+    with st.expander("📝 إضافة تقرير يومي جديد"):
+        c1, c2 = st.columns(2)
+        with c1: st.date_input("تاريخ اليوم")
+        with c2: st.selectbox("المشروع", ["بئر غبالو", "حريملة", "مشروع آخر"])
+        st.multiselect("العتاد المستخدم اليوم", ["حفارة هيدروليكية", "شاحنة رافعة", "ضاغط هواء", "مولد كهربائي"])
+        st.text_area("ملاحظات تقنية (حالة التربة، معوقات)")
+        st.button("حفظ التقرير اليومي")
+
+# 4. وضعية الأشغال (النموذج الرسمي)
+elif menu == "📄 كشف وضعية الأشغال (Situation)":
+    st.header("📄 كشف وضعية الأشغال (Modèle Officiel)")
+    st.write("**المصلحة المتعاقدة:** مديرية الموارد المائية")
     
-    # إنشاء نموذج جدول وضعية أشغال جزائري احترافي
     data = {
-        "رقم البند": ["01", "02", "03"],
-        "تعيين الأشغال": ["تنصيب الورشة", "الحفر الميكانيكي (Forage)", "التجهيز بالأنابيب"],
-        "الوحدة": ["F", "ML", "ML"],
-        "السعر الوحدوي (DA)": [150000, 8000, 4500],
-        "الكمية المتعاقد عليها": [1, 120, 120],
-        "الكمية المنجزة (سابقاً)": [0, 0, 0],
-        "الكمية المنجزة (حالياً)": [1, 45, 0],
+        "البند": ["01", "02", "03", "04"],
+        "التعيين": ["تنصيب الورشة", "حفر ميكانيكي (120م)", "توريد أنابيب فولاذية", "تجارب الضخ"],
+        "الوحدة": ["جزافي", "ML", "ML", "H"],
+        "السعر (DA)": [200000.00, 9500.00, 4800.00, 3500.00],
+        "الكمية الكلية": [1, 120, 120, 24],
+        "المنجز حالياً": [1, 105, 50, 0]
     }
+    df_sit = pd.DataFrame(data)
+    df_sit["المبلغ المستحق (HT)"] = df_sit["المنجز حالياً"] * df_sit["السعر (DA)"]
     
-    df = pd.DataFrame(data)
-    # حساب المبالغ تلقائياً
-    df["المبلغ الحالي (HT)"] = df["الكمية المنجزة (حالياً)"] * df["السعر الوحدوي (DA)"]
-    df["نسبة الإنجاز %"] = (df["الكمية المنجزة (حالياً)"] / df["الكمية المتعاقد عليها"]) * 100
+    st.table(df_sit.style.format({"السعر (DA)": "{:,.2f}", "المبلغ المستحق (HT)": "{:,.2f}"}))
     
-    st.table(df)
-    
-    total_amount = df["المبلغ الحالي (HT)"].sum()
-    st.metric("إجمالي المبلغ المستحق (بدون رسوم)", f"{total_amount:,.2f} د.ج")
-    
-    if st.button("تصدير الوضعية إلى Excel"):
-        st.write("جاري التحميل...")
+    total = df_sit["المبلغ المستحق (HT)"].sum()
+    st.markdown(f"<div style='text-align: left; padding: 10px; background: #eee; border-radius: 5px;'><h3>المبلغ الإجمالي المنجز: {total:,.2f} د.ج</h3></div>", unsafe_allow_html=True)
+    st.button("📥 تحميل ملف الوضعية (Excel)")
